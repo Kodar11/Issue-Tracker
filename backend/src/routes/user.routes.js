@@ -17,6 +17,7 @@ import {
     updateResponses,
     getIssueforuser,
     completeReport,
+    acknowledgeResponse,
     fetchReport,
     getAdmin
 } from "../controllers/issue.controllers.js";
@@ -43,6 +44,7 @@ router.route("/get-issue").get(verifyJWT,getissue)
 router.route("/get-issue-for-user").get(verifyJWT,getIssueforuser)
 router.route("/update-response").put(verifyJWT,updateResponses)
 router.route("/complete-report").post(verifyJWT,completeReport)
+router.route("/acknowledge-time").post(verifyJWT,acknowledgeResponse)
 router.route("/fetch-report").get(verifyJWT,fetchReport)
 router.route("/get-admin").get(verifyJWT,getAdmin)
 

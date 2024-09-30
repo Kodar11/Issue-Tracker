@@ -1,18 +1,33 @@
 import { Issue } from "../models/issueRaise.models.js";
 import { User } from "../models/user.models.js";
-import {sendEmail} from "../utils/emailService.js"
+import { sendEmail } from "../utils/emailService.js"
 import { Response } from "../models/response.models.js";
 
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
+const giveTime = () => {
+    const currentTime = new Date();
 
-const createIssue = asyncHandler(async (req,res)=>{
-    const {issue,description,address,requireDepartment} = req.body
+    const day = String(currentTime.getDate()).padStart(2, '0');
+    const month = String(currentTime.getMonth() + 1).padStart(2, '0');
+    const year = currentTime.getFullYear();
+
+    const hours = String(currentTime.getHours()).padStart(2, '0');
+    const minutes = String(currentTime.getMinutes()).padStart(2, '0');
+    const seconds = String(currentTime.getSeconds()).padStart(2, '0');
+
+    const giveTime2 = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    
+    return giveTime2
+}
+
+const createIssue = asyncHandler(async (req, res) => {
+    const { issue, description, address, requireDepartment } = req.body
 
     if (
-        [issue,address,requireDepartment].some((field) => field?.trim() === "")
+        [issue, address, requireDepartment].some((field) => field?.trim() === "")
     ) {
         throw new ApiError(400, "All fields are required")
     }
@@ -22,17 +37,19 @@ const createIssue = asyncHandler(async (req,res)=>{
     if (!availableUser) {
         throw new ApiError(401, "Required Department is not available");
     }
-    
+
     const task = await Issue.create({
         issue,
         description,
         address,
         requireDepartment,
-        userId: req.user._id
+        userId: req.user._id,
+        createdAt : giveTime(),
+        updatedAt : giveTime()
     })
     await task.save();
 
-    
+
     // Send email to the user
     const subject = 'New Issue Assigned';
     const text = `Dear ${availableUser.fullName},
@@ -49,8 +66,8 @@ Thank you,
 UAIMS HR`;
 
     await sendEmail(availableUser.email, subject, text);
- 
-    const response = await Response.create({ 
+
+    const response = await Response.create({
         issueId: task._id
     });
     await response.save();
@@ -60,18 +77,18 @@ UAIMS HR`;
 
 
     return res
-    .status(200)
-    .json(new ApiResponse(200,{task,response},"Issue is created successfully"))
+        .status(200)
+        .json(new ApiResponse(200, { task, response }, "Issue is created successfully"))
 })
 
-const getissue = asyncHandler(async (req,res)=>{
+const getissue = asyncHandler(async (req, res) => {
     const dep = req.user.department
-    
-    const issues = await Issue.find({requireDepartment : dep, complete:false})
-    
+
+    const issues = await Issue.find({ requireDepartment: dep, complete: false })
+
     return res
-    .status(200)
-    .json(new ApiResponse(201,issues,"issues fetched successfully"))
+        .status(200)
+        .json(new ApiResponse(201, issues, "issues fetched successfully"))
 })
 
 
@@ -125,14 +142,14 @@ const updateResponses = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, updatedResponses, "Responses updated successfully!"));
 });
 
-const getIssueforuser = asyncHandler(async (req,res)=>{
+const getIssueforuser = asyncHandler(async (req, res) => {
     const getuser = req.user._id
     const findproblems = await Issue.find({ userId: getuser, complete: false });
-    
+
 
     return res
-    .status(200)
-    .json(new ApiResponse(201,findproblems,"problem is fetched successfully to users"))
+        .status(200)
+        .json(new ApiResponse(201, findproblems, "problem is fetched successfully to users"))
 })
 
 
@@ -142,7 +159,7 @@ const sendReportToAdmin = asyncHandler(async (req, res) => {
 
 
     // Find all issues created by the user
-    const findProblems = await Issue.find({ userId:userId });
+    const findProblems = await Issue.find({ userId: userId });
 
 
     // If no issues are found, return an appropriate message
@@ -152,7 +169,7 @@ const sendReportToAdmin = asyncHandler(async (req, res) => {
 
     // Extract issue IDs
     const issueIds = findProblems.map(issue => issue._id);
-    
+
     // Find all responses corresponding to the issues
     const findResponses = await Response.find({ issueId: { $in: issueIds } });
 
@@ -172,10 +189,9 @@ const completeReport = asyncHandler(async (req, res) => {
     // Find all responses corresponding to the issue
     const findResponses = await Response.find({ issueId });
 
-    const currentTime = new Date();
 
     // Update the specific issue
-    await Issue.updateOne({ _id: issueId }, { complete: true, updatedAt: currentTime });
+    await Issue.updateOne({ _id: issueId }, { complete: true, updatedAt: giveTime() });
 
     // Update corresponding responses
     await Response.updateMany({ issueId }, { complete: true });
@@ -184,18 +200,38 @@ const completeReport = asyncHandler(async (req, res) => {
 });
 
 
-const fetchReport = asyncHandler(async (req,res)=>{
+const acknowledgeResponse = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+    const { responseId } = req.body; // Get the specific responseId from the request body or params
+    console.log(responseId);
+
+    // Find the specific response by the user
+    const findResponse = await Response.findOne({ issueId: responseId });
+
+    if (!findResponse) {
+        return res.status(404).json(new ApiResponse(404, {}, "No response found with the provided ID for this user"));
+    }
+
+    // Update the response's acknowledgment time
+    await Response.updateOne({ issueId: responseId }, { acknowledge_at: giveTime() });
+
+    return res.status(200).json(new ApiResponse(200, { findResponse }, "Response acknowledged successfully"));
+});
+
+
+
+const fetchReport = asyncHandler(async (req, res) => {
     const completedProblems = await Issue.find();
-    
+
     return res.status(200).json(new ApiResponse(200, completedProblems, "Completed problems and responses fetched successfully"));
 })
 
-const getAdmin = asyncHandler(async (req,res)=>{
+const getAdmin = asyncHandler(async (req, res) => {
     const getdep = req.user.department
 
     return res
-    .status(200)
-    .json(new ApiResponse(201,getdep,"department is fetched successfully to users"))
+        .status(200)
+        .json(new ApiResponse(201, getdep, "department is fetched successfully to users"))
 })
 
 export {
@@ -204,6 +240,7 @@ export {
     getIssueforuser,
     updateResponses,
     completeReport,
+    acknowledgeResponse,
     fetchReport,
     getAdmin,
 }

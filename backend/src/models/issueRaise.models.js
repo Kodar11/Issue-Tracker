@@ -30,12 +30,17 @@ const issueSchema = new Schema(
         userId: {
             type: Schema.Types.ObjectId,
             ref: "User"
+        },
+        // timestapms removed and added in string format
+        createdAt : {
+            type : String
+        },
+        updatedAt : {
+            type : String
         }
 
-    },
-    {
-        timestamps: true
     }
+    
 )
 
 export const Issue = mongoose.model("Issue",issueSchema)

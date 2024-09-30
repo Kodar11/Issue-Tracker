@@ -24,12 +24,21 @@ const responseSchema = new Schema(
         complete :{
             type : Boolean,
             default:false
+        },
+        aknowledge_at : {
+            type: String,
+            default:"",
+        },
+        // timestapms removed and added in string format
+        createdAt : {
+            type : String
+        },
+        updatedAt : {
+            type : String
         }
 
     },
-    {
-        timestamps: true
-    }
+    
 )
 
 export const Response = mongoose.model("Response",responseSchema)
